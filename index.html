@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Toyota Hilux Road Game</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f0f0;
+        }
+
+        #gameArea {
+            width: 100vw;
+            height: 75vw;
+            max-width: 133.33vh;
+            max-height: 100vh;
+            border: 2px solid black;
+            position: relative;
+            background: #87CEEB;
+            overflow: hidden;
+            touch-action: none;
+        }
+        
+        #car {
+            width: 30%; /* 240/800 */
+            height: 24%; /* 144/600 */
+            position: absolute;
+            bottom: 3.33%; /* 20/600 */
+            animation: wobble 0.3s infinite alternate;
+            object-fit: contain;
+            z-index: 3;
+        }
+        
+        .symbol {
+            width: 12%; /* 96/800 */
+            height: 16%; /* 96/600 */
+            position: absolute;
+            transition: top 0.1s;
+            object-fit: contain;
+            z-index: 2;
+        }
+        
+        .maojhole-symbol {
+            width: 36%; /* 12% × 300% = 288/800 */
+            height: 48%; /* 16% × 300% = 288/600 */
+            position: absolute;
+            transition: top 0.1s;
+            object-fit: contain;
+            z-index: 2;
+        }
+        
+        #durgaPopup {
+            width: 15%; /* 120/800 */
+            height: 20%; /* 120/600 */
+            position: absolute;
+            display: none;
+            z-index: 4;
+            object-fit: contain;
+        }
+        
+        #durganamastePopup {
+            width: 15%; /* 120/800 */
+            height: 20%; /* 120/600 */
+            position: absolute;
+            display: none;
+            z-index: 4;
+            object-fit: contain;
+        }
+        
+        #bloodPopup {
+            width: 40%; /* 320/800, larger to splat around the car */
+            height: 32%; /* 192/600, larger to splat around the car */
+            position: absolute;
+            display: none;
+            z-index: 5; /* Above car and durga */
+            object-fit: contain;
+        }
+        
+        #jholeText {
+            position: absolute;
+            font-size: 90%; /* 15% × 600% = 90% */
+            font-family: Arial, sans-serif;
+            color: red;
+            z-index: 10;
+            display: none;
+            text-align: center;
+        }
+        
+        #durbar {
+            width: 80%; /* 400% of original 20% */
+            height: 20%; /* 400% of original 5% */
+            position: absolute;
+            top: 0;
+            left: 10%; /* Center: (100% - 80%) / 2 */
+            z-index: 10;
+            object-fit: contain;
+        }
+        
+        #score {
+            position: absolute;
+            top: 1.67%; /* 10/600 */
+            left: 1.25%; /* 10/800 */
+            font-size: 15%; /* Increased from 9% to 15% */
+            font-family: Arial;
+            z-index: 10;
+        }
+        
+        .road {
+            width: 75%; /* 600/800 */
+            height: 100%;
+            background: gray;
+            position: absolute;
+            left: 12.5%; /* (800 - 600) / 2 / 800 = 12.5% */
+            z-index: 1;
+        }
+
+        .divider {
+            width: 2%; /* 16/800 */
+            height: 5%; /* 30/600 */
+            background: white;
+            position: absolute;
+            left: 49%; /* Center of the road: 12.5% + (75%/2) - (2%/2) */
+            z-index: 2;
+        }
+
+        @keyframes wobble {
+            0% { transform: rotate(-10deg) translateY(-5px); }
+            100% { transform: rotate(10deg) translateY(5px); }
+        }
+
+        @keyframes moveDivider {
+            0% { top: -5%; }
+            100% { top: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameArea">
+        <div class="road"></div>
+        <div id="score">Score: 0</div>
+        <img id="car" src="assets/car.jpg" 
+             onload="console.log('Car image loaded successfully')"
+             onerror="console.error('Failed to load car image at assets/car.jpg'); this.style.background='red';">
+        <img id="durgaPopup" src="assets/durga.jpg" 
+             onload="console.log('Durga image loaded successfully')"
+             onerror="console.error('Failed to load durga image at assets/durga.jpg'); this.style.background='green';">
+        <img id="durganamastePopup" src="assets/durganamaste.jpg" 
+             onload="console.log('Durganamaste image loaded successfully')"
+             onerror="console.error('Failed to load durganamaste image at assets/durganamaste.jpg'); this.style.background='pink';">
+        <img id="bloodPopup" src="assets/blood.jpg" 
+             onload="console.log('Blood image loaded successfully')"
+             onerror="console.error('Failed to load blood image at assets/blood.jpg'); this.style.background='darkred';">
+        <div id="jholeText">JHOLE</div>
+        <img id="durbar" src="assets/durbar.jpg" 
+             onload="console.log('Durbar image loaded successfully')"
+             onerror="console.error('Failed to load durbar image at assets/durbar.jpg'); this.style.background='purple';">
+        <audio id="splatSound" src="assets/splat.mp3" preload="auto" 
+               onload="console.log('Splat sound loaded successfully')"
+               onerror="console.error('Failed to load splat sound at assets/splat.mp3')"></audio>
+        <audio id="aaoSound" src="assets/aao.mp3" preload="auto" 
+               onload="console.log('Aao sound loaded successfully')"
+               onerror="console.error('Failed to load aao sound at assets/aao.mp3')"></audio>
+        <audio id="revSound" src="assets/rev.mp3" preload="auto" loop 
+               onload="console.log('Rev sound loaded successfully')"
+               onerror="console.error('Failed to load rev sound at assets/rev.mp3')"></audio>
+    </div>
+
+    <script>
+        const gameArea = document.getElementById('gameArea');
+        const car = document.getElementById('car');
+        const durgaPopup = document.getElementById('durgaPopup');
+        const durganamastePopup = document.getElementById('durganamastePopup');
+        const bloodPopup = document.getElementById('bloodPopup');
+        const jholeText = document.getElementById('jholeText');
+        const splatSound = document.getElementById('splatSound');
+        const aaoSound = document.getElementById('aaoSound');
+        const revSound = document.getElementById('revSound');
+        const scoreDisplay = document.getElementById('score');
+        
+        let carPosition = 350;
+        let score = 0;
+        let symbols = [];
+        let gameWidth = 800;
+        let gameHeight = 600;
+        let isGameRunning = true;
+        let symbolInterval;
+        let animationFrame;
+        let isDurgaVisible = false;
+        let isBloodVisible = false;
+        let isAudioEnabled = false;
+
+        const symbolEffects = {
+            'symbol1': 10,  // +10 points
+            'symbol2': 10,  // +10 points
+            'symbol3': 10,  // +10 points
+            'symbol4': -10, // -10 points
+            'symbol5': -10, // -10 points
+            'symbol6': -10, // -10 points
+            'maojhole': 0   // No score effect for maojhole
+        };
+        
+        const symbolImages = {
+            'symbol1': 'assets/symbol1.jpg',
+            'symbol2': 'assets/symbol2.jpg',
+            'symbol3': 'assets/symbol3.jpg',
+            'symbol4': 'assets/symbol4.jpg',
+            'symbol5': 'assets/symbol5.jpg',
+            'symbol6': 'assets/symbol6.jpg',
+            'maojhole': 'assets/maojhole.jpg'
+        };
+
+        // Enable audio after user interaction
+        function enableAudio() {
+            if (!isAudioEnabled) {
+                splatSound.play().then(() => {
+                    console.log('Splat audio enabled after user interaction');
+                    splatSound.pause();
+                    splatSound.currentTime = 0;
+                }).catch(error => {
+                    console.error('Failed to enable splat audio:', error);
+                });
+
+                aaoSound.play().then(() => {
+                    console.log('Aao audio enabled after user interaction');
+                    aaoSound.pause();
+                    aaoSound.currentTime = 0;
+                }).catch(error => {
+                    console.error('Failed to enable aao audio:', error);
+                });
+
+                revSound.play().then(() => {
+                    console.log('Rev audio enabled and playing on loop');
+                    isAudioEnabled = true;
+                }).catch(error => {
+                    console.error('Failed to enable rev audio:', error);
+                });
+            }
+        }
+
+        gameArea.addEventListener('click', enableAudio);
+        gameArea.addEventListener('touchstart', enableAudio);
+
+        function createDividers() {
+            const dividerCount = 5;
+            for (let i = 0; i < dividerCount; i++) {
+                const divider = document.createElement('div');
+                divider.className = 'divider';
+                divider.style.top = (i * 20 - 5) + '%';
+                divider.style.animation = `moveDivider 2s linear infinite`;
+                divider.style.animationDelay = `${i * -0.4}s`;
+                gameArea.appendChild(divider);
+            }
+        }
+
+        function updateGameDimensions() {
+            const rect = gameArea.getBoundingClientRect();
+            gameWidth = rect.width;
+            gameHeight = rect.height;
+            carPosition = Math.max(100 * (gameWidth / 800), 
+                                 Math.min(460 * (gameWidth / 800), carPosition)); // 700 - 240 = 460
+            car.style.left = (carPosition * (gameWidth / 800)) + 'px';
+            if (isDurgaVisible) {
+                updateDurgaPosition();
+            }
+            if (isBloodVisible) {
+                updateBloodPosition();
+            }
+        }
+
+        window.addEventListener('resize', updateGameDimensions);
+        updateGameDimensions();
+
+        function moveCar(x) {
+            const scaledX = x * (800 / gameWidth);
+            carPosition = Math.max(100, Math.min(460, scaledX - (240 / 2)));
+            car.style.left = (carPosition * (gameWidth / 800)) + 'px';
+            if (isDurgaVisible) {
+                updateDurgaPosition();
+            }
+            if (isBloodVisible) {
+                updateBloodPosition();
+            }
+        }
+
+        function updateDurgaPosition() {
+            const carWidthPercent = 30;
+            const durgaWidthPercent = 15;
+            const offsetLeft = (carWidthPercent - durgaWidthPercent) / 2;
+            durgaPopup.style.left = ((carPosition * (gameWidth / 800)) + (offsetLeft * gameWidth / 100)) + 'px';
+            durgaPopup.style.bottom = 3.33 + '%';
+            durganamastePopup.style.left = ((carPosition * (gameWidth / 800)) + (offsetLeft * gameWidth / 100)) + 'px';
+            durganamastePopup.style.bottom = 3.33 + '%';
+        }
+
+        function updateBloodPosition() {
+            const carWidthPercent = 30;
+            const bloodWidthPercent = 40;
+            const offsetLeft = (carWidthPercent - bloodWidthPercent) / 2;
+            const carHeightPercent = 24;
+            const carBottomPercent = 3.33;
+            const carTopPercent = carBottomPercent + carHeightPercent;
+            bloodPopup.style.left = ((carPosition * (gameWidth / 800)) + (offsetLeft * gameWidth / 100)) + 'px';
+            bloodPopup.style.bottom = carTopPercent + '%';
+        }
+
+        gameArea.addEventListener('mousemove', (e) => {
+            const rect = gameArea.getBoundingClientRect();
+            moveCar(e.clientX - rect.left);
+        });
+
+        gameArea.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            const rect = gameArea.getBoundingClientRect();
+            const touch = e.touches[0];
+            moveCar(touch.clientX - rect.left);
+        }, { passive: false });
+
+        function isPositionSafe(leftPosition, isMaojhole = false) {
+            const symbolWidth = isMaojhole ? 288 : 96; // Maojhole is 300% larger
+            const buffer = 10;
+            for (let symbol of symbols) {
+                const existingLeft = parseFloat(symbol.style.left) * (800 / gameWidth);
+                if (Math.abs(leftPosition - existingLeft) < symbolWidth + buffer) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        function createSymbol() {
+            if (!isGameRunning) return;
+
+            const type = Object.keys(symbolEffects)[Math.floor(Math.random() * Object.keys(symbolEffects).length)];
+            
+            const symbol = document.createElement('img');
+            const isMaojhole = type === 'maojhole';
+            symbol.className = isMaojhole ? 'maojhole-symbol' : 'symbol';
+            symbol.src = symbolImages[type];
+            symbol.dataset.type = type;
+
+            const roadLeft = 100;
+            const roadRight = 700;
+            const symbolWidth = isMaojhole ? 288 : 96; // Maojhole is 300% larger
+            let leftPosition;
+            let attempts = 0;
+            const maxAttempts = 10;
+
+            do {
+                leftPosition = Math.random() * (roadRight - roadLeft - symbolWidth) + roadLeft;
+                attempts++;
+            } while (!isPositionSafe(leftPosition, isMaojhole) && attempts < maxAttempts);
+
+            if (attempts >= maxAttempts) {
+                console.log(`Failed to spawn ${type} after ${maxAttempts} attempts due to overlap`);
+                return;
+            }
+
+            console.log(`Spawning symbol: ${type} at left: ${leftPosition}`);
+            symbol.style.left = (leftPosition * (gameWidth / 800)) + 'px';
+            symbol.style.top = (isMaojhole ? -288 : -96) * (gameHeight / 600) + 'px'; // Adjust for larger size
+            symbol.dataset.speed = Math.random() * 2 + 1;
+            symbol.onload = () => console.log(`Symbol image loaded successfully: ${symbol.src}`);
+            symbol.onerror = () => {
+                console.error(`Failed to load symbol image: ${symbol.src}`);
+                symbol.style.background = 'blue';
+            };
+            
+            gameArea.appendChild(symbol);
+            symbols.push(symbol);
+        }
+
+        function showDurgaPopup(type) {
+            isDurgaVisible = true;
+            updateDurgaPosition();
+            const useNamaste = ['symbol4', 'symbol5', 'symbol6'].includes(type);
+            const popup = useNamaste ? durganamastePopup : durgaPopup;
+            popup.style.display = 'block';
+            setTimeout(() => {
+                popup.style.display = 'none';
+                isDurgaVisible = false;
+            }, 1000);
+        }
+
+        function showBloodPopup(type) {
+            if (!['symbol1', 'symbol2', 'symbol3', 'maojhole'].includes(type)) {
+                return;
+            }
+            isBloodVisible = true;
+            updateBloodPosition();
+            bloodPopup.style.display = 'block';
+            if (isAudioEnabled) {
+                splatSound.currentTime = 0;
+                splatSound.play().catch(error => {
+                    console.error('Failed to play splat sound:', error);
+                });
+                aaoSound.currentTime = 0;
+                aaoSound.play().catch(error => {
+                    console.error('Failed to play aao sound:', error);
+                });
+            } else {
+                console.log('Audio not enabled yet. Please interact with the game to enable sound.');
+            }
+            setTimeout(() => {
+                bloodPopup.style.display = 'none';
+                isBloodVisible = false;
+            }, 1000);
+        }
+
+        function gameLoop() {
+            if (!isGameRunning) return;
+
+            symbols.forEach((symbol, index) => {
+                let top = parseFloat(symbol.style.top);
+                const speed = parseFloat(symbol.dataset.speed);
+                top += speed * (gameHeight / 600);
+                symbol.style.top = top + 'px';
+
+                const carRect = car.getBoundingClientRect();
+                const symbolRect = symbol.getBoundingClientRect();
+                
+                if (isCollision(carRect, symbolRect)) {
+                    console.log(`Collision with ${symbol.dataset.type}`);
+                    score += symbolEffects[symbol.dataset.type];
+                    scoreDisplay.textContent = `Score: ${score}`;
+                    showDurgaPopup(symbol.dataset.type);
+                    showBloodPopup(symbol.dataset.type);
+                    if (symbol.dataset.type === 'maojhole') {
+                        const maojholeLeft = parseFloat(symbol.style.left);
+                        const maojholeTop = parseFloat(symbol.style.top);
+                        jholeText.style.left = maojholeLeft + 'px';
+                        jholeText.style.top = maojholeTop + 'px';
+                        jholeText.style.transform = 'none';
+                        jholeText.style.display = 'block';
+                        setTimeout(() => {
+                            jholeText.style.display = 'none';
+                        }, 1000);
+                    }
+                    gameArea.removeChild(symbol);
+                    symbols.splice(index, 1);
+                    return;
+                }
+
+                if (top > gameHeight) {
+                    gameArea.removeChild(symbol);
+                    symbols.splice(index, 1);
+                }
+            });
+
+            animationFrame = requestAnimationFrame(gameLoop);
+        }
+
+        function isCollision(rect1, rect2) {
+            return !(rect1.right < rect2.left || 
+                    rect1.left > rect2.right || 
+                    rect1.bottom < rect2.top || 
+                    rect1.top > rect2.bottom);
+        }
+
+        function handleVisibilityChange() {
+            if (document.hidden) {
+                isGameRunning = false;
+                clearInterval(symbolInterval);
+                cancelAnimationFrame(animationFrame);
+                if (isAudioEnabled) {
+                    revSound.pause();
+                }
+            } else {
+                isGameRunning = true;
+                symbolInterval = setInterval(createSymbol, 1000);
+                gameLoop();
+                if (isAudioEnabled) {
+                    revSound.play().catch(error => {
+                        console.error('Failed to resume rev sound:', error);
+                    });
+                }
+            }
+        }
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        createDividers();
+        symbolInterval = setInterval(createSymbol, 1000);
+        gameLoop();
+    </script>
+</body>
+</html>
